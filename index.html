@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfil Productivo Regional - Tarata & Ticaco (MIDAGRI Style)</title>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- OpenLayers CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --midagri-primary: #198754;
+      --midagri-dark: #123524;
+      --midagri-accent: #2e7d32;
+      --bg-dashboard: #f4f7f5;
+    }
+
+    body {
+      background-color: var(--bg-dashboard);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #333;
+    }
+
+    /* Top Navbar */
+    .navbar-midagri {
+      background: linear-gradient(135deg, var(--midagri-dark) 0%, var(--midagri-accent) 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* KPI Cards */
+    .kpi-card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      transition: transform 0.2s ease;
+      background: #ffffff;
+      border-left: 5px solid var(--midagri-primary);
+    }
+    .kpi-card:hover {
+      transform: translateY(-3px);
+    }
+    .kpi-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--midagri-dark);
+    }
+
+    /* Card Panels */
+    .dashboard-card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      background: #ffffff;
+      margin-bottom: 1.5rem;
+    }
+    .dashboard-card .card-header {
+      background-color: transparent;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      font-weight: 600;
+      color: var(--midagri-dark);
+      padding: 1rem 1.25rem;
+    }
+
+    /* Map Container */
+    #map {
+      width: 100%;
+      height: 380px;
+      border-radius: 8px;
+    }
+
+    /* Chart Containers */
+    .chart-container {
+      position: relative;
+      height: 270px;
+      width: 100%;
+    }
+
+    /* Custom scrollbar for table */
+    .table-responsive {
+      max-height: 400px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-midagri px-4 py-3">
+    <div class="container-fluid">
+      <a class="navbar-brand text-white fw-bold d-flex align-items-center" href="#">
+        <i class="bi bi-tree-fill fs-3 me-2 text-warning"></i>
+        <div>
+          <span class="fs-5 d-block">PERFIL PRODUCTIVO REGIONAL - TARATA & TICACO</span>
+          <small class="text-white-50 fs-6">Sistema de Gestión de Andenes, Enmiendas Orgánicas y Riego Parcelario</small>
+        </div>
+      </a>
+      <div class="d-none d-lg-flex align-items-center">
+        <span class="badge bg-success bg-opacity-75 text-light px-3 py-2 border border-light border-opacity-25">
+          <i class="bi bi-calendar-check me-1"></i> Campaña Agrícola Activa
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <div class="container-fluid py-4 px-4">
+
+    <!-- FILTERS BAR -->
+    <div class="dashboard-card p-3 mb-4">
+      <div class="row align-items-center g-3">
+        <div class="col-md-1">
+          <span class="fw-bold text-secondary"><i class="bi bi-funnel-fill text-success"></i> Filtros:</span>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small text-muted mb-1">Sector Geográfico / Org. Campesina</label>
+          <select id="filterSector" class="form-select form-select-sm">
+            <option value="ALL">-- Todos los Sectores --</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small text-muted mb-1">Cultivo / Producto Principal</label>
+          <select id="filterCultivo" class="form-select form-select-sm">
+            <option value="ALL">-- Todos los Cultivos --</option>
+          </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button id="btnReset" class="btn btn-outline-secondary btn-sm w-100">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Restablecer Filtros
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 1: KPI CARDS & MAP -->
+    <div class="row g-4 mb-4">
+      <!-- KPI Cards Column -->
+      <div class="col-lg-4">
+        <div class="row g-3">
+          <div class="col-sm-6 col-lg-12">
+            <div class="card kpi-card p-3">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <small class="text-muted fw-semibold text-uppercase">Sup. Agrícola Tratada</small>
+                  <div class="kpi-value" id="kpiArea">0.00 ha</div>
+                </div>
+                <div class="p-3 bg-success bg-opacity-10 text-success rounded-circle">
+                  <i class="bi bi-bounding-box fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-12">
+            <div class="card kpi-card p-3" style="border-left-color: #0d6efd;">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <small class="text-muted fw-semibold text-uppercase">Total Productores / Fichas</small>
+                  <div class="kpi-value" id="kpiBeneficiarios">0</div>
+                </div>
+                <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-circle">
+                  <i class="bi bi-people-fill fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-12">
+            <div class="card kpi-card p-3" style="border-left-color: #ffc107;">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <small class="text-muted fw-semibold text-uppercase">Rendimiento Promedio</small>
+                  <div class="kpi-value" id="kpiRendimiento">0.0 t/ha</div>
+                </div>
+                <div class="p-3 bg-warning bg-opacity-10 text-warning rounded-circle">
+                  <i class="bi bi-graph-up-arrow fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-12">
+            <div class="card kpi-card p-3" style="border-left-color: #dc3545;">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <small class="text-muted fw-semibold text-uppercase">Volumen Riego Promedio</small>
+                  <div class="kpi-value" id="kpiVolumen">0 m³</div>
+                </div>
+                <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-circle">
+                  <i class="bi bi-water fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map Card Column -->
+      <div class="col-lg-8">
+        <div class="dashboard-card h-100 d-flex flex-column">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-map-fill text-success me-2"></i> Reporte Cartográfico Georreferenciado</span>
+            <div class="small text-muted">
+              <span class="badge bg-success me-1">■ Andenes</span>
+              <span class="badge bg-warning text-dark me-1">● Enmiendas</span>
+              <span class="badge bg-info text-dark">● Riego</span>
+            </div>
+          </div>
+          <div class="card-body p-2 flex-grow-1">
+            <div id="map"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2: GRÁFICOS EJECUTIVOS -->
+    <div class="row g-4 mb-4">
+      <div class="col-xl-6">
+        <div class="dashboard-card h-100">
+          <div class="card-header"><i class="bi bi-bar-chart-fill text-success me-2"></i> Reporte de Área Tratada por Sector (ha)</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="chartAreaSector"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-6">
+        <div class="dashboard-card h-100">
+          <div class="card-header"><i class="bi bi-pie-chart-fill text-success me-2"></i> Distribución de Cultivos Principales</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="chartCultivos"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-xl-6">
+        <div class="dashboard-card h-100">
+          <div class="card-header"><i class="bi bi-layers-fill text-success me-2"></i> Tipos de Suelo por Sector</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="chartSuelos"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-6">
+        <div class="dashboard-card h-100">
+          <div class="card-header"><i class="bi bi-speedometer2 text-success me-2"></i> Rendimiento por Hectárea (t/ha) por Sector</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="chartRendimiento"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 3: TABLA DETALLADA DE BENEFICIARIOS -->
+    <div class="dashboard-card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table text-success me-2"></i> Registro Detallado de Productores y Fichas Técnicas</span>
+        <div class="w-25">
+          <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Buscar por DNI, Nombre o Sector...">
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-striped align-middle mb-0 small" id="dataTable">
+            <thead class="table-dark text-uppercase small">
+              <tr>
+                <th>COD</th>
+                <th>Productor / Nombre</th>
+                <th>DNI</th>
+                <th>Sector</th>
+                <th>Cultivo</th>
+                <th>Área (ha)</th>
+                <th>Rdto (t/ha)</th>
+                <th>Tipo Suelo</th>
+                <th>Técnico Responsable</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <!-- Cargado dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JS Dependencies: Bootstrap, OpenLayers, Proj4js, Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    // 1. Configurar soporte Proj4 para UTM Zona 19S (EPSG:32719)
+    proj4.defs("EPSG:32719", "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs");
+    ol.proj.proj4.register(proj4);
+
+    let globalAndenes = [];
+    let globalEnmienda = [];
+    let globalRiego = [];
+    let masterRecords = [];
+
+    let chartAreaInst = null;
+    let chartCultivoInst = null;
+    let chartSueloInst = null;
+    let chartRendInst = null;
+
+    // 2. Inicializar Mapa OpenLayers
+    const vectorSourceAndenes = new ol.source.Vector();
+    const vectorSourceEnmienda = new ol.source.Vector();
+    const vectorSourceRiego = new ol.source.Vector();
+
+    const map = new ol.Map({
+      target: 'map',
+      layers: [
+        new ol.layer.Tile({ source: new ol.source.OSM() }),
+        new ol.layer.Vector({
+          source: vectorSourceAndenes,
+          style: new ol.style.Style({
+            fill: new ol.style.Fill({ color: 'rgba(25, 135, 84, 0.35)' }),
+            stroke: new ol.style.Stroke({ color: '#123524', width: 2 })
+          })
+        }),
+        new ol.layer.Vector({
+          source: vectorSourceEnmienda,
+          style: new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 6,
+              fill: new ol.style.Fill({ color: '#ffc107' }),
+              stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 })
+            })
+          })
+        }),
+        new ol.layer.Vector({
+          source: vectorSourceRiego,
+          style: new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 6,
+              fill: new ol.style.Fill({ color: '#0dcaf0' }),
+              stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 })
+            })
+          })
+        })
+      ],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([-70.035, -17.460]),
+        zoom: 12
+      })
+    });
+
+    // 3. Cargar GeoJSON de forma asíncrona
+    async function loadAllData() {
+      try {
+        const [resAnd, resEnm, resRie] = await Promise.all([
+          fetch('andenes.geojson').then(r => r.json()).catch(() => ({features: []})),
+          fetch('enmienda_organica.geojson').then(r => r.json()).catch(() => ({features: []})),
+          fetch('riego_parcelario.geojson').then(r => r.json()).catch(() => ({features: []}))
+        ]);
+
+        globalAndenes = resAnd.features || [];
+        globalEnmienda = resEnm.features || [];
+        globalRiego = resRie.features || [];
+
+        processAndParseData();
+        populateFilters();
+        updateDashboard('ALL', 'ALL');
+      } catch (err) {
+        console.error("Error cargando archivos GeoJSON:", err);
+      }
+    }
+
+    // 4. Consolidar registros maestros
+    function processAndParseData() {
+      masterRecords = [];
+
+      // Procesar Andenes
+      globalAndenes.forEach((f, idx) => {
+        const p = f.properties || {};
+        masterRecords.push({
+          id: `AND-${idx}`,
+          cod: p.COD || `TR00${idx}`,
+          nombre: p.Name || `${p.NOMBRES || ''} ${p.APELLIDO || ''}`.trim() || 'Productor Andén',
+          dni: p.DNI || 'S/D',
+          sector: p.SECTOR || p.ORG_CAMPE || 'TARATA',
+          cultivo: p.INST_CULT || 'VARIOS',
+          area: parseFloat(p.AREA_HA) || 0.33,
+          rendimiento: parseFloat(p.Rdt_t_ha) || 3.0,
+          suelo: p.TIPO_SUEL || 'FRANCO ARENOSO',
+          volumen: 0,
+          tec: p.TEC || 'EDWIN NAVARRO',
+          tipo: 'Anden'
+        });
+
+        // Cargar al mapa OpenLayers (WGS84 nativo)
+        if (f.geometry) {
+          const geom = new ol.format.GeoJSON().readGeometry(f.geometry, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+          });
+          vectorSourceAndenes.addFeature(new ol.Feature({ geometry: geom, data: p }));
+        }
+      });
+
+      // Procesar Enmienda Orgánica
+      globalEnmienda.forEach((f, idx) => {
+        const p = f.properties || {};
+        masterRecords.push({
+          id: `ENM-${idx}`,
+          cod: p.COD || `EO-00${idx}`,
+          nombre: `${p.NOMBRE || ''} ${p.APELLIDOS || ''}`.trim() || 'Productor Enmienda',
+          dni: p.DNI || 'S/D',
+          sector: p.SECTOR || p.ORG_CAMPES || 'TICACO',
+          cultivo: p.CULTIVO || 'OREGANO',
+          area: 1.0,
+          rendimiento: 4.5,
+          suelo: 'FRANCO ARCILLOSO',
+          volumen: 0,
+          tec: p.TEC || 'LUIS VASQUEZ',
+          tipo: 'Enmienda'
+        });
+
+        if (f.geometry) {
+          const geom = new ol.format.GeoJSON().readGeometry(f.geometry, {
+            dataProjection: 'EPSG:32719',
+            featureProjection: 'EPSG:3857'
+          });
+          vectorSourceEnmienda.addFeature(new ol.Feature({ geometry: geom, data: p }));
+        }
+      });
+
+      // Procesar Riego Parcelario
+      globalRiego.forEach((f, idx) => {
+        const p = f.properties || {};
+        masterRecords.push({
+          id: `RIE-${idx}`,
+          cod: p.COD || `RP-00${idx}`,
+          nombre: `${p.NOMBRES || ''} ${p.APELLIDOS || ''}`.trim() || 'Productor Riego',
+          dni: p.DNI || 'S/D',
+          sector: p.SECTOR || p.ORG_CAMPES || 'LUPAJA',
+          cultivo: 'RIEGO TECNIFICADO',
+          area: 0.5,
+          rendimiento: 3.5,
+          suelo: 'FRANCO',
+          volumen: parseFloat(p.VOL_ALMACE) || 85.0,
+          tec: p.NOMBR_TEC || 'EDWIN NAVARRO',
+          tipo: 'Riego'
+        });
+
+        if (f.geometry) {
+          const geom = new ol.format.GeoJSON().readGeometry(f.geometry, {
+            dataProjection: 'EPSG:32719',
+            featureProjection: 'EPSG:3857'
+          });
+          vectorSourceRiego.addFeature(new ol.Feature({ geometry: geom, data: p }));
+        }
+      });
+    }
+
+    // 5. Poblar selects de filtros
+    function populateFilters() {
+      const sectors = [...new Set(masterRecords.map(r => r.sector))].filter(Boolean).sort();
+      const cultivos = [...new Set(masterRecords.map(r => r.cultivo))].filter(Boolean).sort();
+
+      const selSector = document.getElementById('filterSector');
+      sectors.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        selSector.appendChild(opt);
+      });
+
+      const selCultivo = document.getElementById('filterCultivo');
+      cultivos.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        selCultivo.appendChild(opt);
+      });
+    }
+
+    // 6. Actualizar Dashboard completo según filtros
+    function updateDashboard(filterSector, filterCultivo) {
+      let filtered = masterRecords;
+      if (filterSector !== 'ALL') {
+        filtered = filtered.filter(r => r.sector === filterSector);
+      }
+      if (filterCultivo !== 'ALL') {
+        filtered = filtered.filter(r => r.cultivo.toUpperCase().includes(filterCultivo.toUpperCase()));
+      }
+
+      // Calcular KPIs
+      const totalArea = filtered.reduce((acc, curr) => acc + curr.area, 0);
+      const totalBeneficiarios = filtered.length;
+      const avgRendimiento = totalBeneficiarios > 0 ? (filtered.reduce((acc, curr) => acc + curr.rendimiento, 0) / totalBeneficiarios) : 0;
+      const avgVolumen = totalBeneficiarios > 0 ? (filtered.reduce((acc, curr) => acc + curr.volumen, 0) / (filtered.filter(r => r.volumen > 0).length || 1)) : 0;
+
+      document.getElementById('kpiArea').textContent = `${totalArea.toFixed(2)} ha`;
+      document.getElementById('kpiBeneficiarios').textContent = totalBeneficiarios.toLocaleString();
+      document.getElementById('kpiRendimiento').textContent = `${avgRendimiento.toFixed(1)} t/ha`;
+      document.getElementById('kpiVolumen').textContent = `${avgVolumen.toFixed(1)} m³`;
+
+      // Poblar Tabla
+      renderTable(filtered);
+
+      // Renderizar Gráficos
+      renderCharts(filtered);
+    }
+
+    // 7. Renderizar Tabla de Datos
+    function renderTable(data) {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      data.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="badge bg-secondary">${item.cod}</span></td>
+          <td class="fw-semibold">${item.nombre}</td>
+          <td>${item.dni}</td>
+          <td><span class="badge bg-success bg-opacity-75">${item.sector}</span></td>
+          <td>${item.cultivo}</td>
+          <td>${item.area.toFixed(2)}</td>
+          <td>${item.rendimiento.toFixed(1)}</td>
+          <td>${item.suelo}</td>
+          <td class="text-muted small">${item.tec}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 8. Renderizar Gráficos con Chart.js
+    function renderCharts(data) {
+      // Agrupación por Sector para Área
+      const areaBySector = {};
+      const rendimientoBySector = {};
+      const countBySector = {};
+      const sueloCount = {};
+      const cultivoCount = {};
+
+      data.forEach(r => {
+        areaBySector[r.sector] = (areaBySector[r.sector] || 0) + r.area;
+        rendimientoBySector[r.sector] = (rendimientoBySector[r.sector] || 0) + r.rendimiento;
+        countBySector[r.sector] = (countBySector[r.sector] || 0) + 1;
+        
+        sueloCount[r.suelo] = (sueloCount[r.suelo] || 0) + 1;
+        cultivoCount[r.cultivo] = (cultivoCount[r.cultivo] || 0) + 1;
+      });
+
+      const sectors = Object.keys(areaBySector);
+      const areaValues = sectors.map(s => areaBySector[s]);
+      const rendValues = sectors.map(s => (rendimientoBySector[s] / countBySector[s]).toFixed(2));
+
+      // Gráfico 1: Área por Sector
+      if (chartAreaInst) chartAreaInst.destroy();
+      chartAreaInst = new Chart(document.getElementById('chartAreaSector'), {
+        type: 'bar',
+        data: {
+          labels: sectors,
+          datasets: [{
+            label: 'Sup. Tratada (ha)',
+            data: areaValues,
+            backgroundColor: '#198754',
+            borderRadius: 6
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      // Gráfico 2: Cultivos
+      const topCultivos = Object.entries(cultivoCount).sort((a,b) => b[1] - a[1]).slice(0, 5);
+      if (chartCultivoInst) chartCultivoInst.destroy();
+      chartCultivoInst = new Chart(document.getElementById('chartCultivos'), {
+        type: 'doughnut',
+        data: {
+          labels: topCultivos.map(c => c[0]),
+          datasets: [{
+            data: topCultivos.map(c => c[1]),
+            backgroundColor: ['#198754', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      // Gráfico 3: Tipo de Suelo
+      const suelos = Object.keys(sueloCount);
+      if (chartSueloInst) chartSueloInst.destroy();
+      chartSueloInst = new Chart(document.getElementById('chartSuelos'), {
+        type: 'polarArea',
+        data: {
+          labels: suelos,
+          datasets: [{
+            data: suelos.map(s => sueloCount[s]),
+            backgroundColor: ['rgba(25, 135, 84, 0.7)', 'rgba(13, 202, 240, 0.7)', 'rgba(255, 193, 7, 0.7)']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      // Gráfico 4: Rendimiento por Sector
+      if (chartRendInst) chartRendInst.destroy();
+      chartRendInst = new Chart(document.getElementById('chartRendimiento'), {
+        type: 'line',
+        data: {
+          labels: sectors,
+          datasets: [{
+            label: 'Rendimiento Promedio (t/ha)',
+            data: rendValues,
+            borderColor: '#ffc107',
+            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // 9. Event Listeners para Filtros y Buscador
+    document.getElementById('filterSector').addEventListener('change', (e) => {
+      updateDashboard(e.target.value, document.getElementById('filterCultivo').value);
+    });
+
+    document.getElementById('filterCultivo').addEventListener('change', (e) => {
+      updateDashboard(document.getElementById('filterSector').value, e.target.value);
+    });
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      document.getElementById('filterSector').value = 'ALL';
+      document.getElementById('filterCultivo').value = 'ALL';
+      updateDashboard('ALL', 'ALL');
+    });
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase();
+      const filtered = masterRecords.filter(r => 
+        r.nombre.toLowerCase().includes(term) || 
+        r.dni.toLowerCase().includes(term) || 
+        r.sector.toLowerCase().includes(term) ||
+        r.cod.toLowerCase().includes(term)
+      );
+      renderTable(filtered);
+    });
+
+    // Iniciar carga al cargar la página
+    window.onload = loadAllData;
+  </script>
+</body>
+</html>
